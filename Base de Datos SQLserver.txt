@@ -1,0 +1,347 @@
+------------------------------------------------------------
+-- SISTEMA DE INVENTARIO - COLEGIO CLARETIANO
+------------------------------------------------------------
+
+IF DB_ID('inventario_claretiano') IS NOT NULL
+    DROP DATABASE inventario_claretiano;
+GO
+
+CREATE DATABASE inventario_claretiano;
+GO
+
+USE inventario_claretiano;
+GO
+
+------------------------------------------------------------
+-- TABLAS DE CATÁLOGOS
+------------------------------------------------------------
+
+CREATE TABLE cat_estado_equipo (
+    id_estado INT IDENTITY(1,1) PRIMARY KEY,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    descripcion VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE cat_tipo_equipo (
+    id_tipo INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE cat_tipo_ubicacion (
+    id_tipo_ubicacion INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE proveedores (
+    id_proveedor INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    contacto VARCHAR(150),
+    telefono VARCHAR(50),
+    email VARCHAR(100)
+);
+
+CREATE TABLE cat_tipo_mantenimiento (
+    id_tipo_mant INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE
+);
+
+------------------------------------------------------------
+-- ROLES, USUARIOS Y PERSONAL
+------------------------------------------------------------
+
+CREATE TABLE roles (
+    id_rol INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE usuarios (
+    id_usuario INT IDENTITY(1,1) PRIMARY KEY,
+    nombre_completo VARCHAR(150) NOT NULL,
+    usuario VARCHAR(50) NOT NULL UNIQUE,
+    contrasena_hash VARCHAR(255) NOT NULL,
+    id_rol INT NOT NULL,
+    correo VARCHAR(150),
+    estado VARCHAR(10) DEFAULT 'Activo',
+    fecha_registro DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
+);
+
+CREATE TABLE personal_responsable (
+    id_resp INT IDENTITY(1,1) PRIMARY KEY,
+    nombre VARCHAR(150) NOT NULL,
+    cargo VARCHAR(100),
+    email VARCHAR(100),
+    telefono VARCHAR(50)
+);
+
+------------------------------------------------------------
+-- UBICACIONES
+------------------------------------------------------------
+
+CREATE TABLE ubicaciones (
+    id_ubicacion INT IDENTITY(1,1) PRIMARY KEY,
+    id_tipo_ubicacion INT NOT NULL,
+    codigo VARCHAR(50) NOT NULL UNIQUE,
+    nombre VARCHAR(150),
+    piso VARCHAR(20),
+    descripcion VARCHAR(255),
+    FOREIGN KEY (id_tipo_ubicacion) REFERENCES cat_tipo_ubicacion(id_tipo_ubicacion)
+);
+
+------------------------------------------------------------
+-- EQUIPOS (TABLA PRINCIPAL)
+------------------------------------------------------------
+
+CREATE TABLE equipos (
+    id_equipo INT IDENTITY(1,1) PRIMARY KEY,
+    numero_serie VARCHAR(120) NOT NULL UNIQUE,
+    id_tipo INT NOT NULL,
+    marca VARCHAR(80) NOT NULL,
+    modelo VARCHAR(120) NOT NULL,
+    id_ubicacion INT NOT NULL,
+    id_estado INT NOT NULL,
+    fecha_adquisicion DATE,
+    id_proveedor INT,
+    costo DECIMAL(12,2),
+    fecha_registro DATETIME DEFAULT GETDATE(),
+    registrado_por INT,
+    observaciones VARCHAR(MAX),
+    activo BIT DEFAULT 1,
+    FOREIGN KEY (id_tipo) REFERENCES cat_tipo_equipo(id_tipo),
+    FOREIGN KEY (id_ubicacion) REFERENCES ubicaciones(id_ubicacion),
+    FOREIGN KEY (id_estado) REFERENCES cat_estado_equipo(id_estado),
+    FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
+    FOREIGN KEY (registrado_por) REFERENCES usuarios(id_usuario)
+);
+
+CREATE INDEX idx_equipos_numserie ON equipos(numero_serie);
+CREATE INDEX idx_equipos_tipo ON equipos(id_tipo);
+CREATE INDEX idx_equipos_ubicacion ON equipos(id_ubicacion);
+CREATE INDEX idx_equipos_estado ON equipos(id_estado);
+
+------------------------------------------------------------
+-- MANTENIMIENTOS
+------------------------------------------------------------
+
+CREATE TABLE mantenimientos (
+    id_mantenimiento INT IDENTITY(1,1) PRIMARY KEY,
+    id_equipo INT NOT NULL,
+    id_tipo_mant INT NOT NULL,
+    descripcion VARCHAR(MAX),
+    fecha_solicitud DATETIME DEFAULT GETDATE(),
+    fecha_inicio DATETIME,
+    fecha_fin DATETIME,
+    responsable_tecnico INT,
+    estado_mant VARCHAR(20) DEFAULT 'Pendiente',
+    costo DECIMAL(12,2),
+    creado_por INT,
+    FOREIGN KEY (id_equipo) REFERENCES equipos(id_equipo),
+    FOREIGN KEY (id_tipo_mant) REFERENCES cat_tipo_mantenimiento(id_tipo_mant),
+    FOREIGN KEY (responsable_tecnico) REFERENCES personal_responsable(id_resp),
+    FOREIGN KEY (creado_por) REFERENCES usuarios(id_usuario)
+);
+
+CREATE INDEX idx_mant_equipo ON mantenimientos(id_equipo);
+CREATE INDEX idx_mant_estado ON mantenimientos(estado_mant);
+
+------------------------------------------------------------
+-- HISTORIAL DE CAMBIOS
+------------------------------------------------------------
+
+CREATE TABLE historial_cambios (
+    id_historial INT IDENTITY(1,1) PRIMARY KEY,
+    id_equipo INT NOT NULL,
+    campo_modificado VARCHAR(100) NOT NULL,
+    valor_anterior VARCHAR(MAX),
+    valor_nuevo VARCHAR(MAX),
+    fecha_cambio DATETIME DEFAULT GETDATE(),
+    usuario_modifico INT,
+    motivo VARCHAR(MAX),
+    FOREIGN KEY (id_equipo) REFERENCES equipos(id_equipo),
+    FOREIGN KEY (usuario_modifico) REFERENCES usuarios(id_usuario)
+);
+
+------------------------------------------------------------
+-- REPORTES
+------------------------------------------------------------
+
+CREATE TABLE reportes (
+    id_reporte INT IDENTITY(1,1) PRIMARY KEY,
+    nombre_reporte VARCHAR(150),
+    parametros NVARCHAR(MAX),
+    total_registros INT,
+    fecha_generacion DATETIME DEFAULT GETDATE(),
+    generado_por INT,
+    archivo_ruta VARCHAR(255),
+    FOREIGN KEY (generado_por) REFERENCES usuarios(id_usuario)
+);
+
+------------------------------------------------------------
+-- CONFIGURACIÓN
+------------------------------------------------------------
+
+CREATE TABLE configuracion (
+    id_config INT IDENTITY(1,1) PRIMARY KEY,
+    clave VARCHAR(100) NOT NULL UNIQUE,
+    valor VARCHAR(MAX),
+    descripcion VARCHAR(255),
+    fecha_actualizacion DATETIME DEFAULT GETDATE()
+);
+
+------------------------------------------------------------
+-- SESIONES
+------------------------------------------------------------
+
+CREATE TABLE sesiones (
+    id_sesion INT IDENTITY(1,1) PRIMARY KEY,
+    id_usuario INT,
+    token VARCHAR(255),
+    fecha_login DATETIME DEFAULT GETDATE(),
+    fecha_logout DATETIME,
+    ip_origen VARCHAR(50),
+    dispositivo VARCHAR(150),
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+);
+
+------------------------------------------------------------
+-- INSERTAR DATOS INICIALES
+------------------------------------------------------------
+
+INSERT INTO roles (nombre) VALUES ('Administrador'), ('Técnico'), ('Usuario');
+
+INSERT INTO cat_tipo_equipo (nombre) VALUES
+('Computadora'),('Laptop'),('Impresora'),('Router'),('Switch'),
+('Proyector'),('Monitor'),('Teclado'),('Mouse'),('Otro');
+
+INSERT INTO cat_estado_equipo (codigo, descripcion) VALUES
+('OPERATIVO','Operativo'),
+('REPARACION','En reparación'),
+('NO_DISPONIBLE','No disponible'),
+('DADO_BAJA','Dado de baja');
+
+INSERT INTO cat_tipo_ubicacion (nombre) VALUES
+('Aula'),('Laboratorio'),('Oficina'),('Almacén'),('Otro');
+
+INSERT INTO cat_tipo_mantenimiento (nombre) VALUES ('Preventivo'),('Correctivo');
+
+INSERT INTO proveedores (nombre, contacto, telefono, email) VALUES
+('Proveedor TI S.A.','Carlos Ruiz','987654321','ventas@proveedorti.pe');
+
+INSERT INTO ubicaciones (id_tipo_ubicacion, codigo, nombre, piso, descripcion) VALUES
+(1,'AULA-101','Aula 101','1','Aula principal del primer bloque'),
+(1,'AULA-102','Aula 102','1','Aula secundaria'),
+(2,'LAB-01','Laboratorio de informática','2','Laboratorio con 25 estaciones'),
+(3,'OFI-ADM','Oficina Administración','1','Oficina de la dirección'),
+(4,'ALM-01','Almacén de TI','G','Depósito de equipos');
+
+INSERT INTO personal_responsable (nombre, cargo, email, telefono) VALUES
+('Juan Pérez','Técnico de TI','juan.perez@claretiano.edu.pe','945000111'),
+('María Gómez','Coordinadora de Laboratorio','maria.gomez@claretiano.edu.pe','945000222');
+
+INSERT INTO usuarios (nombre_completo, usuario, contrasena_hash, id_rol, correo) VALUES
+('Administrador del Sistema','admin','$2y$12$examplehashadmin',1,'admin@claretiano.edu.pe'),
+('Tecnico Principal','tecnico1','$2y$12$examplehashtec',2,'tecnico@claretiano.edu.pe'),
+('Usuario Base','usuario1','$2y$12$examplehashuser',3,'usuario@claretiano.edu.pe');
+
+INSERT INTO equipos (numero_serie, id_tipo, marca, modelo, id_ubicacion, id_estado, fecha_adquisicion, id_proveedor, costo, registrado_por, observaciones)
+VALUES
+('CLT-0001', 1, 'HP', 'ProDesk 400 G6', 1, 1, '2023-03-10', 1, 2500.00, 1, 'Equipo sala de clases'),
+('CLT-0002', 2, 'Lenovo', 'ThinkPad E14', 2, 1, '2024-02-15', 1, 3200.00, 1, 'Portátil de profesor'),
+('CLT-0003', 3, 'Epson', 'L3250', 4, 2, '2022-11-20', 1, 600.00, 2, 'Impresora - en revisión');
+
+INSERT INTO mantenimientos (id_equipo, id_tipo_mant, descripcion, fecha_solicitud, fecha_inicio, responsable_tecnico, estado_mant, creado_por)
+VALUES
+(3, 2, 'Cambio de cabezal', '2025-10-10 09:00:00', '2025-10-10 10:00:00', 1, 'Finalizado', 2);
+
+INSERT INTO reportes (nombre_reporte, parametros, total_registros, generado_por)
+VALUES ('Inventario general','{}',3,1);
+
+INSERT INTO configuracion (clave, valor, descripcion) VALUES
+('DB_HOST','localhost','Host para conexión JDBC'),
+('DB_PORT','3306','Puerto MySQL'),
+('DB_NAME','inventario_claretiano','Nombre de la BD para la app'),
+('DB_USER','root','Usuario BD (evitar root en prod)');
+
+------------------------------------------------------------
+-- TRIGGER AUDITORÍA DE CAMBIOS EN EQUIPOS
+------------------------------------------------------------
+GO
+
+CREATE TRIGGER trg_equipos_after_update
+ON equipos
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Ubicación
+    INSERT INTO historial_cambios (id_equipo, campo_modificado, valor_anterior, valor_nuevo, usuario_modifico)
+    SELECT i.id_equipo, 'ubicacion',
+           d.id_ubicacion, i.id_ubicacion, i.registrado_por
+    FROM inserted i
+    JOIN deleted d ON i.id_equipo = d.id_equipo
+    WHERE i.id_ubicacion <> d.id_ubicacion;
+
+    -- Estado
+    INSERT INTO historial_cambios (id_equipo, campo_modificado, valor_anterior, valor_nuevo, usuario_modifico)
+    SELECT i.id_equipo, 'estado',
+           d.id_estado, i.id_estado, i.registrado_por
+    FROM inserted i
+    JOIN deleted d ON i.id_equipo = d.id_equipo
+    WHERE i.id_estado <> d.id_estado;
+END;
+GO
+
+------------------------------------------------------------
+-- VISTAS
+------------------------------------------------------------
+
+CREATE VIEW vista_inventario AS
+SELECT
+    e.id_equipo,
+    e.numero_serie,
+    t.nombre AS tipo,
+    e.marca,
+    e.modelo,
+    u.codigo AS codigo_ubicacion,
+    ut.nombre AS tipo_ubicacion,
+    est.descripcion AS estado,
+    e.fecha_adquisicion,
+    e.costo,
+    p.nombre AS proveedor,
+    e.observaciones,
+    e.activo
+FROM equipos e
+LEFT JOIN cat_tipo_equipo t ON e.id_tipo = t.id_tipo
+LEFT JOIN ubicaciones u ON e.id_ubicacion = u.id_ubicacion
+LEFT JOIN cat_tipo_ubicacion ut ON u.id_tipo_ubicacion = ut.id_tipo_ubicacion
+LEFT JOIN cat_estado_equipo est ON e.id_estado = est.id_estado
+LEFT JOIN proveedores p ON e.id_proveedor = p.id_proveedor;
+GO
+
+CREATE VIEW vista_mantenimientos AS
+SELECT m.*, e.numero_serie, t.nombre AS tipo_mantenimiento, pr.nombre AS proveedor
+FROM mantenimientos m
+LEFT JOIN equipos e ON m.id_equipo = e.id_equipo
+LEFT JOIN cat_tipo_mantenimiento t ON m.id_tipo_mant = t.id_tipo_mant
+LEFT JOIN proveedores pr ON e.id_proveedor = pr.id_proveedor;
+GO
+
+------------------------------------------------------------
+-- PROCEDIMIENTO ALMACENADO
+------------------------------------------------------------
+
+CREATE PROCEDURE sp_reporte_por_estado
+AS
+BEGIN
+    SELECT est.descripcion AS estado, COUNT(*) AS total
+    FROM equipos e
+    JOIN cat_estado_equipo est ON e.id_estado = est.id_estado
+    WHERE e.activo = 1
+    GROUP BY est.descripcion;
+END;
+GO
+
+------------------------------------------------------------
+-- FIN SCRIPT
+------------------------------------------------------------
