@@ -1,5 +1,5 @@
 package aplicativo_colegio_claretiano;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import javax.swing.table.DefaultTableModel;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -10,7 +10,7 @@ import java.sql.ResultSet;
  * @author Luis Daniel
  */
 public class BusquedaEquipos extends javax.swing.JFrame {
-private ArrayList<Equipo> listaBuscados = new ArrayList<>();
+private LinkedList<Equipo> listaBuscados = new LinkedList<>();
 DefaultTableModel modeloTabla;
 
     public BusquedaEquipos() {

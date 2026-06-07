@@ -1,7 +1,7 @@
 package aplicativo_colegio_claretiano;
 
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.sql.Connection;
 import javax.swing.table.DefaultTableModel;
 import java.sql.PreparedStatement;
@@ -15,7 +15,7 @@ import javax.swing.JOptionPane;
  */
   
 public class Listas_Enlasadas extends javax.swing.JFrame {
-private ArrayList<Equipo> listaEquipos = new ArrayList<>();
+private LinkedList<Equipo> listaEquipos = new LinkedList<>();
 private Stack<Equipo> pilaEliminados = new Stack<>();
 DefaultTableModel modeloTabla;
     /**
